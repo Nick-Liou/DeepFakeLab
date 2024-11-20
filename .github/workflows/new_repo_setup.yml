@@ -1,0 +1,43 @@
+name: Update Status Badges and Installation instructions
+# New Repo Setup
+
+on:
+  create:
+  workflow_dispatch:
+    
+permissions:
+    contents: write
+
+jobs:
+  update-badge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update Status Badges and Installation instructions
+        run: |
+          # Extract repository owner and name from environment variables
+          REPO_OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
+          REPO_NAME=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
+
+          # Update the status badges URLs and instructions in README.md          
+          sed -i "s/Nick-Liou/$REPO_OWNER/g" README.md
+          sed -i "s/Python_template/$REPO_NAME/g" README.md
+          sed -i "s/A template for Python projects with github actions for / /g" README.md
+          sed -i "s/- tests (with pytest)/ /g" README.md
+          sed -i "s/- type anotations (with Mypy)/ /g" README.md
+          sed -i "s/- automaticaly updating the badges and the Installation using the new username and repo name on creation/ /g" README.md
+        
+
+        
+      - name: Set up Git
+        run: |
+            git config --global user.name 'GitHub Actions'
+            git config --global user.email 'actions@github.com'
+
+      - name: Commit and push changes
+        run: |
+            git add README.md
+            git commit -m "Update README"
+            git push
