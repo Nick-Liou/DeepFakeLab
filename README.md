@@ -3,7 +3,12 @@
 
 # DeepFakeLab
  
+ <!-- 
+ https://github.com/neuralchen/SimSwap
+ https://github.com/iperov/DeepFaceLab
+ https://github.com/deepfakes/faceswap
  
+  -->
  
  
 

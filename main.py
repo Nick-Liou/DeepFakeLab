@@ -79,6 +79,126 @@ def select_face(image: np.ndarray, face_landmarks: List[dict], face_locations: L
     face_idx = int(input("Enter the face number to swap: "))
     return face_landmarks[face_idx], face_locations[face_idx]
 
+
+def warp_and_align_face(
+    source_image: np.ndarray,
+    source_landmarks: dict,
+    target_landmarks: dict,
+    target_face_location: Tuple[int, int, int, int]
+) -> np.ndarray:
+    """
+    Align the source face to match the target face landmarks and warp it.
+
+    Args:
+        source_image (np.ndarray): The source image.
+        source_landmarks (dict): Landmarks of the source face.
+        target_landmarks (dict): Landmarks of the target face.
+        target_face_location (Tuple[int, int, int, int]): Location of the target face (top, right, bottom, left).
+
+    Returns:
+        np.ndarray: The warped and aligned source face.
+    """
+    # Select key facial points (eyes, nose, mouth) for alignment
+    source_points = np.array([
+        source_landmarks["left_eye"][0],
+        source_landmarks["right_eye"][0],
+        source_landmarks["nose_tip"][0]
+    ], dtype=np.float32)
+
+    target_points = np.array([
+        target_landmarks["left_eye"][0],
+        target_landmarks["right_eye"][0],
+        target_landmarks["nose_tip"][0]
+    ], dtype=np.float32)
+
+    # Compute an affine transform to align the source face with the target
+    warp_matrix = cv2.getAffineTransform(source_points, target_points)
+
+    # Warp the source image to align it with the target face
+    top, right, bottom, left = target_face_location
+    face_width, face_height = right - left, bottom - top
+    warped_face = cv2.warpAffine(source_image, warp_matrix, (face_width, face_height))
+
+    return warped_face
+
+def blend_faces(
+    target_image: np.ndarray,
+    warped_face: np.ndarray,
+    target_face_location: Tuple[int, int, int, int]
+) -> np.ndarray:
+    """
+    Blend the warped source face into the target image using a mask.
+
+    Args:
+        target_image (np.ndarray): The target image.
+        warped_face (np.ndarray): The aligned source face.
+        target_face_location (Tuple[int, int, int, int]): Location of the target face (top, right, bottom, left).
+
+    Returns:
+        np.ndarray: The image with the blended face.
+    """
+    top, right, bottom, left = target_face_location
+    face_width, face_height = right - left, bottom - top
+
+    # Create a mask for the face region
+    face_mask = np.zeros((face_height, face_width), dtype=np.uint8)
+    cv2.circle(face_mask, (face_width // 2, face_height // 2), min(face_width, face_height) // 2, 255, -1)
+
+    # Extract the target face region
+    target_face_region = target_image[top:bottom, left:right]
+
+    # Blend the warped face with the target face using the mask
+    blended_face = cv2.seamlessClone(
+        warped_face, target_face_region, face_mask, (face_width // 2, face_height // 2), cv2.NORMAL_CLONE
+    )
+
+    # Place the blended face back into the target image
+    result = target_image.copy()
+    result[top:bottom, left:right] = blended_face
+
+    return result
+
+def main2() -> None:
+    """
+    Main function to perform face swapping.
+    """
+    print("Select the original image with multiple faces.")
+    original_image_path = select_file("Select Original Image")
+
+    print("Select the source face image.")
+    source_image_path = select_file("Select Source Face Image")
+
+    # Extract landmarks and locations for original and source images
+    original_image, original_landmarks_list, original_locations = extract_face_landmarks(original_image_path)
+    source_image, source_landmarks_list, _ = extract_face_landmarks(source_image_path)
+
+    if not original_landmarks_list or not source_landmarks_list:
+        print("No faces detected in one of the images. Exiting.")
+        return
+
+    # Select a face to swap in the original image
+    target_landmarks, target_location = select_face(
+        original_image.copy(), original_landmarks_list, original_locations
+    )
+
+    # Select the first face in the source image
+    source_landmarks = source_landmarks_list[0]
+
+    # Warp and align the source face to match the target face
+    warped_face = warp_and_align_face(source_image, source_landmarks, target_landmarks, target_location)
+
+    # Blend the warped face into the original image
+    result = blend_faces(original_image, warped_face, target_location)
+
+    # Show and save the result
+    cv2.imshow("Swapped Image", result)
+    output_path = "swapped_result.jpg"
+    cv2.imwrite(output_path, result)
+    print(f"Swapped image saved to {output_path}.")
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
 def warp_face(source_landmarks: dict, target_landmarks: dict) -> np.ndarray:
     """
     Warp the source face to match the target face's landmarks.
@@ -105,8 +225,6 @@ def warp_face(source_landmarks: dict, target_landmarks: dict) -> np.ndarray:
     return warp_matrix
 
 
-
-
 def swap_faces(
     original_image: np.ndarray, source_image: np.ndarray,
     target_face_landmarks: dict, target_face_location: Tuple[int, int, int, int]
@@ -128,7 +246,7 @@ def swap_faces(
     original_image[top:bottom, left:right] = resized_face
     return original_image
 
-def main() -> None:
+def main1() -> None:
     """
     Main function to perform face swapping.
     """
@@ -174,4 +292,4 @@ def main() -> None:
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()
+    main1()
